@@ -1,22 +1,46 @@
-# Environnement virtuel Python
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+
+# Virtual Environment
 .venv/
 venv/
 ENV/
 env/
 
-# IDE - PyCharm / IntelliJ
+# IDE
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
 
-# Cache Python
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Fichiers système
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Captures - Export files
+# Captures - Export files (user-generated data)
 captures/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+portable/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Specific text/json exclusions (but keep README.md and requirements.txt)
 *.json
+!.gitignore
 *.txt
+!requirements.txt

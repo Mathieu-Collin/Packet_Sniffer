@@ -270,10 +270,88 @@ python main.py -p tcp --port 443 -c 200 --export-json --export-txt
 - Connection flow tracking
 - Protocol distribution charts
 
-### Phase 4 - Executable (Planned)
-- Portable Windows executable (PyInstaller)
+### ✅ Phase 4 - Portable Executable (Complete)
+- ✅ Portable Windows executable (PyInstaller)
+- ✅ No Python installation required
+- ✅ Single-file executable (~11 MB)
+- ✅ USB-ready deployment package
+- ✅ Automatic build script
+- ✅ Easy launcher included
+
+## 💾 Portable Version (USB Deployment)
+
+### Building the Portable Version
+
+If you want to create your own portable executable:
+
+```powershell
+# 1. Install PyInstaller (if not already done)
+pip install pyinstaller
+
+# 2. Run the build script
+python build_exe.py
+```
+
+The build script will:
+1. Clean previous build artifacts
+2. Create a standalone executable with PyInstaller
+3. Package everything in a `portable/` folder
+4. Include documentation and launcher scripts
+
+### Using the Portable Version
+
+The `portable/` folder contains everything needed for USB deployment:
+
+```
+portable/
+├── PacketSniffer.exe        # Standalone executable (no Python needed!)
+├── Run_PacketSniffer.bat    # Easy launcher with admin prompt
+├── README.md                # Full documentation
+├── USAGE.txt                # Quick reference guide
+└── captures/                # Export folder (auto-created)
+```
+
+#### Quick Start (Portable):
+
+1. **Copy the `portable/` folder to a USB drive**
+2. **On any Windows PC:**
+   - Double-click `Run_PacketSniffer.bat`
+   - Or right-click `PacketSniffer.exe` → "Run as administrator"
+3. **Follow the on-screen prompts**
+
+#### Command-Line Usage (Portable):
+
+Open Command Prompt/PowerShell as Administrator in the portable folder:
+
+```powershell
+# Basic usage
+.\PacketSniffer.exe
+
+# Capture 50 packets with JSON export
+.\PacketSniffer.exe -c 50 --export-json
+
+# Endless HTTPS monitoring
+.\PacketSniffer.exe -c 0 -p tcp --port 443
+
+# Capture with all filters and export
+.\PacketSniffer.exe -p tcp --port 80 -c 100 --export-json --export-txt
+```
+
+### Benefits of Portable Version
+
+✅ **No Installation Required** - Works on any Windows PC without Python  
+✅ **USB Ready** - Carry it on a USB drive, run anywhere  
+✅ **Single File** - All dependencies bundled in one executable  
+✅ **Same Features** - Identical functionality to Python version  
+✅ **Easy Distribution** - Share with colleagues without setup hassle  
+✅ **Offline Capable** - No internet connection needed  
+
+### System Requirements (Portable)
+
+- Windows 7/8/10/11 (64-bit)
+- Administrator privileges
+- ~11 MB disk space
 - No Python installation required
-- Automatic privilege elevation
 
 ## 🛠️ Technical Details
 
@@ -295,8 +373,18 @@ python main.py -p tcp --port 443 -c 200 --export-json --export-txt
 ## 🐛 Troubleshooting
 
 ### "Permission denied" error
-- **Windows:** Run PowerShell/CMD as Administrator
+- **Windows:** Run PowerShell/CMD as Administrator or use `Run_PacketSniffer.bat`
+- **Portable Version:** Right-click `PacketSniffer.exe` → "Run as administrator"
 - **Linux/macOS:** Use `sudo` to run with root privileges
+
+### Portable executable not starting
+- **Antivirus blocking:** Add exception for PacketSniffer.exe
+- **SmartScreen warning:** Click "More info" → "Run anyway"
+- **Missing DLL error:** Use the portable version (all dependencies included)
+
+### Portable version - "Not a valid Win32 application"
+- Ensure you're using 64-bit Windows
+- Re-build the executable on your system if needed
 
 ### No packets captured
 - Verify administrator/root privileges
@@ -313,11 +401,18 @@ python main.py -p tcp --port 443 -c 200 --export-json --export-txt
 ```
 Packet_Sniffer/
 ├── main.py              # Main application file (~1000 lines)
+├── build_exe.py         # Build script for portable executable
 ├── README.md            # This file
 ├── requirements.txt     # Python dependencies
-└── captures/            # Export directory (auto-created)
-    ├── capture_YYYYMMDD_HHMMSS.json
-    └── capture_YYYYMMDD_HHMMSS.txt
+├── captures/            # Export directory (auto-created)
+│   ├── capture_YYYYMMDD_HHMMSS.json
+│   └── capture_YYYYMMDD_HHMMSS.txt
+└── portable/            # Portable package (after build)
+    ├── PacketSniffer.exe
+    ├── Run_PacketSniffer.bat
+    ├── README.md
+    ├── USAGE.txt
+    └── captures/
 ```
 
 ## 👨‍💻 Development
@@ -332,6 +427,10 @@ This is an educational project. Use responsibly and legally.
 
 ---
 
-**Current Status:** Phase 2.3 Complete - Export Features (JSON, Text, Timestamps) ✅
+**Current Status:** Phase 4 Complete - Portable Executable (USB Ready) ✅
 
-**Next Phase:** Phase 3 - Advanced Storage and Analysis
+**All Phases Complete!** Ready for production use and portfolio presentation.
+
+**Deployment Options:**
+- 🐍 Python Version: For development and customization
+- 💾 Portable Version: For USB deployment and distribution
