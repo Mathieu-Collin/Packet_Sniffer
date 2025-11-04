@@ -18,6 +18,9 @@ import os
 import platform
 import textwrap
 import argparse
+import json
+from datetime import datetime
+from pathlib import Path
 from colorama import init, Fore, Back, Style
 
 # Initialize colorama for Windows compatibility
@@ -49,6 +52,16 @@ class PacketSniffer:
         
         # Hostname cache for reverse DNS lookups
         self.hostname_cache = {}
+        
+        # Export features
+        self.captured_packets = []  # Store packets for export
+        self.export_json = getattr(args, 'export_json', None)
+        self.export_txt = getattr(args, 'export_txt', None)
+        self.output_dir = Path(getattr(args, 'output_dir', 'captures'))
+        
+        # Create output directory if export is enabled
+        if self.export_json or self.export_txt:
+            self.output_dir.mkdir(exist_ok=True)
         
         # Common port services (like Wireshark)
         self.port_services = {
@@ -396,6 +409,67 @@ class PacketSniffer:
         
         return True
     
+    def create_packet_dict(self, packet_data, ip_info, transport_info, eth_info=None):
+        """Create a dictionary representation of packet for export"""
+        packet_dict = {
+            'packet_number': self.packet_count,
+            'timestamp': datetime.now().isoformat(),
+            'size': len(packet_data) + (14 if self.os_type == 'Linux' and eth_info else 0),
+            'ip': {
+                'version': ip_info['version'],
+                'header_length': ip_info['header_length'],
+                'ttl': ip_info['ttl'],
+                'protocol': ip_info['protocol_name'],
+                'src_ip': ip_info['src_ip'],
+                'dest_ip': ip_info['dest_ip']
+            }
+        }
+        
+        # Add Ethernet info for Linux
+        if eth_info:
+            packet_dict['ethernet'] = {
+                'src_mac': eth_info['src_mac'],
+                'dest_mac': eth_info['dest_mac'],
+                'protocol': eth_info['protocol_name']
+            }
+        
+        # Add hostname info if available
+        dest_hostname = self.hostname_cache.get(ip_info['dest_ip'])
+        src_hostname = self.hostname_cache.get(ip_info['src_ip'])
+        if dest_hostname or src_hostname:
+            packet_dict['hostnames'] = {}
+            if dest_hostname:
+                packet_dict['hostnames']['destination'] = dest_hostname
+            if src_hostname:
+                packet_dict['hostnames']['source'] = src_hostname
+        
+        # Add transport layer info
+        if transport_info:
+            if ip_info['protocol'] == 6:  # TCP
+                packet_dict['tcp'] = {
+                    'src_port': transport_info['src_port'],
+                    'dest_port': transport_info['dest_port'],
+                    'sequence': transport_info['sequence'],
+                    'acknowledgment': transport_info['acknowledgment'],
+                    'flags': {k: v for k, v in transport_info['flags'].items() if v},
+                    'payload_length': len(transport_info['data'])
+                }
+            elif ip_info['protocol'] == 17:  # UDP
+                packet_dict['udp'] = {
+                    'src_port': transport_info['src_port'],
+                    'dest_port': transport_info['dest_port'],
+                    'length': transport_info['length'],
+                    'payload_length': len(transport_info['data'])
+                }
+            elif ip_info['protocol'] == 1:  # ICMP
+                packet_dict['icmp'] = {
+                    'type': transport_info['type_name'],
+                    'code': transport_info['code'],
+                    'checksum': transport_info['checksum']
+                }
+        
+        return packet_dict
+    
     def display_parsed_packet(self, packet_data):
         """Parse and display packet information"""
         try:
@@ -431,6 +505,12 @@ class PacketSniffer:
             if not self.matches_filters(ip_info, transport_info):
                 self.stats['filtered'] += 1
                 return  # Skip this packet
+            
+            # Store packet for export if enabled
+            if self.export_json or self.export_txt:
+                eth_info_dict = eth_info if self.os_type == "Linux" and 'eth_info' in locals() else None
+                packet_dict = self.create_packet_dict(packet_data, ip_info, transport_info, eth_info_dict)
+                self.captured_packets.append(packet_dict)
             
             # Display packet header
             protocol_color = self.get_protocol_color(ip_info['protocol_name'])
@@ -528,6 +608,15 @@ class PacketSniffer:
         if hasattr(self.args, 'port') and self.args.port:
             print(f"{Fore.CYAN}🔍 Filter: Port = {self.args.port}{Style.RESET_ALL}")
         
+        # Display export info
+        if self.export_json or self.export_txt:
+            print(f"\n{Fore.LIGHTCYAN_EX}📁 Export enabled:")
+            if self.export_json:
+                print(f"   - JSON format: {Fore.GREEN}✓{Style.RESET_ALL}")
+            if self.export_txt:
+                print(f"   - Text format: {Fore.GREEN}✓{Style.RESET_ALL}")
+            print(f"   - Output directory: {Fore.YELLOW}{self.output_dir}{Style.RESET_ALL}")
+        
         # Endless mode check
         endless_mode = (count == 0)
         if endless_mode:
@@ -620,6 +709,134 @@ class PacketSniffer:
                     print(f"{Fore.LIGHTYELLOW_EX}{ip:<20}{Style.RESET_ALL} {Fore.LIGHTCYAN_EX}{hostname:<50}{Style.RESET_ALL}")
                 print(f"{Fore.CYAN}{'═' * 70}{Style.RESET_ALL}")
     
+    def export_to_json(self):
+        """Export captured packets to JSON file"""
+        if not self.captured_packets:
+            print(f"\n{Fore.YELLOW}⚠️  No packets to export{Style.RESET_ALL}")
+            return
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = self.output_dir / f"capture_{timestamp}.json"
+        
+        export_data = {
+            'metadata': {
+                'capture_date': datetime.now().isoformat(),
+                'total_packets': len(self.captured_packets),
+                'os_type': self.os_type,
+                'filters': {
+                    'protocol': getattr(self.args, 'protocol', None),
+                    'src_ip': getattr(self.args, 'src_ip', None),
+                    'dest_ip': getattr(self.args, 'dest_ip', None),
+                    'port': getattr(self.args, 'port', None)
+                },
+                'statistics': self.stats
+            },
+            'packets': self.captured_packets
+        }
+        
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+            print(f"\n{Fore.GREEN}✅ JSON export successful: {filename}{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"\n{Fore.RED}❌ Error exporting to JSON: {e}{Style.RESET_ALL}")
+    
+    def export_to_txt(self):
+        """Export captured packets to text file"""
+        if not self.captured_packets:
+            print(f"\n{Fore.YELLOW}⚠️  No packets to export{Style.RESET_ALL}")
+            return
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = self.output_dir / f"capture_{timestamp}.txt"
+        
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write("=" * 70 + "\n")
+                f.write("PACKET SNIFFER - CAPTURE REPORT\n")
+                f.write("=" * 70 + "\n\n")
+                
+                # Write metadata
+                f.write(f"Capture Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Operating System: {self.os_type}\n")
+                f.write(f"Total Packets Captured: {len(self.captured_packets)}\n")
+                
+                # Write filters
+                filters_active = False
+                if hasattr(self.args, 'protocol') and self.args.protocol:
+                    f.write(f"Protocol Filter: {self.args.protocol.upper()}\n")
+                    filters_active = True
+                if hasattr(self.args, 'src_ip') and self.args.src_ip:
+                    f.write(f"Source IP Filter: {self.args.src_ip}\n")
+                    filters_active = True
+                if hasattr(self.args, 'dest_ip') and self.args.dest_ip:
+                    f.write(f"Destination IP Filter: {self.args.dest_ip}\n")
+                    filters_active = True
+                if hasattr(self.args, 'port') and self.args.port:
+                    f.write(f"Port Filter: {self.args.port}\n")
+                    filters_active = True
+                if not filters_active:
+                    f.write("Filters: None\n")
+                
+                f.write("\n" + "=" * 70 + "\n")
+                f.write("STATISTICS\n")
+                f.write("=" * 70 + "\n")
+                f.write(f"TCP packets: {self.stats['tcp']}\n")
+                f.write(f"UDP packets: {self.stats['udp']}\n")
+                f.write(f"ICMP packets: {self.stats['icmp']}\n")
+                f.write(f"Other packets: {self.stats['other']}\n")
+                f.write(f"Filtered out: {self.stats['filtered']}\n")
+                
+                f.write("\n" + "=" * 70 + "\n")
+                f.write("PACKET DETAILS\n")
+                f.write("=" * 70 + "\n\n")
+                
+                # Write packet details
+                for packet in self.captured_packets:
+                    f.write(f"\nPacket #{packet['packet_number']}\n")
+                    f.write(f"Timestamp: {packet['timestamp']}\n")
+                    f.write(f"Size: {packet['size']} bytes\n")
+                    
+                    # IP info
+                    f.write(f"\nIP Header:\n")
+                    f.write(f"  Protocol: {packet['ip']['protocol']}\n")
+                    f.write(f"  Source IP: {packet['ip']['src_ip']}\n")
+                    f.write(f"  Destination IP: {packet['ip']['dest_ip']}\n")
+                    f.write(f"  TTL: {packet['ip']['ttl']}\n")
+                    
+                    # Hostnames
+                    if 'hostnames' in packet:
+                        f.write(f"\nHostnames:\n")
+                        if 'source' in packet['hostnames']:
+                            f.write(f"  Source: {packet['hostnames']['source']}\n")
+                        if 'destination' in packet['hostnames']:
+                            f.write(f"  Destination: {packet['hostnames']['destination']}\n")
+                    
+                    # Transport layer
+                    if 'tcp' in packet:
+                        f.write(f"\nTCP Header:\n")
+                        f.write(f"  Source Port: {packet['tcp']['src_port']}\n")
+                        f.write(f"  Destination Port: {packet['tcp']['dest_port']}\n")
+                        f.write(f"  Sequence: {packet['tcp']['sequence']}\n")
+                        f.write(f"  Acknowledgment: {packet['tcp']['acknowledgment']}\n")
+                        if packet['tcp']['flags']:
+                            f.write(f"  Flags: {', '.join(packet['tcp']['flags'].keys())}\n")
+                    elif 'udp' in packet:
+                        f.write(f"\nUDP Header:\n")
+                        f.write(f"  Source Port: {packet['udp']['src_port']}\n")
+                        f.write(f"  Destination Port: {packet['udp']['dest_port']}\n")
+                        f.write(f"  Length: {packet['udp']['length']} bytes\n")
+                    elif 'icmp' in packet:
+                        f.write(f"\nICMP Header:\n")
+                        f.write(f"  Type: {packet['icmp']['type']}\n")
+                        f.write(f"  Code: {packet['icmp']['code']}\n")
+                    
+                    f.write(f"\n{'-' * 70}\n")
+            
+            print(f"\n{Fore.GREEN}✅ Text export successful: {filename}{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"\n{Fore.RED}❌ Error exporting to text: {e}{Style.RESET_ALL}")
+    
     def cleanup(self):
         """Clean up resources"""
         if self.socket:
@@ -648,8 +865,15 @@ class PacketSniffer:
                 # Display port analysis
                 self.display_port_analysis()
                 
+                # Export captured packets if requested
+                if self.export_json:
+                    self.export_to_json()
+                
+                if self.export_txt:
+                    self.export_to_txt()
+                
             except Exception as e:
-                print(f"⚠️  Error during cleanup: {e}")
+                print(f"{Fore.RED}⚠️  Error during cleanup: {e}{Style.RESET_ALL}")
     
     def run(self):
         """Start the packet sniffer"""
@@ -690,6 +914,9 @@ def parse_arguments():
           python main.py -p tcp --port 80 -c 20    # Capture 20 TCP packets on port 80
           python main.py -v                        # Verbose mode (show parsing errors)
           python main.py -c 0 -p tcp --port 443    # Endless HTTPS monitoring
+          python main.py -c 100 --export-json      # Capture 100 packets and export to JSON
+          python main.py -c 50 --export-txt        # Capture 50 packets and export to text
+          python main.py --export-json --export-txt --output-dir logs  # Export to both formats in logs/ directory
         
         Note: Requires administrator/root privileges
         ''')
@@ -736,6 +963,26 @@ def parse_arguments():
         '-v', '--verbose',
         action='store_true',
         help='Enable verbose mode (show parsing errors)'
+    )
+    
+    parser.add_argument(
+        '--export-json',
+        action='store_true',
+        help='Export captured packets to JSON file'
+    )
+    
+    parser.add_argument(
+        '--export-txt',
+        action='store_true',
+        help='Export captured packets to text file'
+    )
+    
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        default='captures',
+        metavar='DIR',
+        help='Output directory for exported files (default: captures/)'
     )
     
     return parser.parse_args()

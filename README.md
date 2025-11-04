@@ -62,13 +62,25 @@ Intercepting communications without permission is illegal in most jurisdictions.
 - Improved readability of all output sections
 - Real-time packet display with color-coded protocol indicators
 
+### Phase 2.3 - Export Features ✅
+- **JSON export** with full packet details and metadata
+- **Text export** with human-readable format
+- **Timestamp tracking** for each captured packet (ISO 8601 format)
+- Automatic output directory management
+- Export includes:
+  - Capture metadata (date, OS, filters, statistics)
+  - Complete packet information (headers, ports, hostnames)
+  - Transport layer details (TCP flags, UDP length, ICMP type)
+- Configurable output directory
+- Export on-demand (opt-in with flags)
+
 ## 📋 Requirements
 
 - Python 3.7+
 - Administrator/root privileges
 - Dependencies:
   - `colorama` (for colored output)
-  - Standard library: `socket`, `struct`, `platform`, `sys`, `os`, `argparse`
+  - Standard library: `socket`, `struct`, `platform`, `sys`, `os`, `argparse`, `json`, `datetime`, `pathlib`
 
 ## 🔧 Installation
 
@@ -138,6 +150,33 @@ python main.py -c 0 -p tcp --port 443
 python main.py -v
 ```
 
+### Export Features
+
+```powershell
+# Capture 100 packets and export to JSON
+python main.py -c 100 --export-json
+
+# Capture 50 packets and export to text file
+python main.py -c 50 --export-txt
+
+# Export to both JSON and text formats
+python main.py -c 100 --export-json --export-txt
+
+# Export with custom output directory
+python main.py -c 50 --export-json --output-dir logs
+
+# Endless mode with JSON export (stop with Ctrl+C)
+python main.py -c 0 --export-json
+
+# Capture HTTPS traffic and export
+python main.py -p tcp --port 443 -c 200 --export-json --export-txt
+```
+
+**Export files naming convention:**
+- JSON: `capture_YYYYMMDD_HHMMSS.json`
+- Text: `capture_YYYYMMDD_HHMMSS.txt`
+- Default location: `captures/` directory (auto-created)
+
 ### Command-Line Arguments
 
 | Argument | Short | Description | Example |
@@ -148,7 +187,49 @@ python main.py -v
 | `--dest-ip` | | Filter by destination IP address | `--dest-ip 8.8.8.8` |
 | `--port` | | Filter by port (source or dest) | `--port 443` |
 | `--verbose` | `-v` | Show parsing errors | `-v` |
+| `--export-json` | | Export captured packets to JSON | `--export-json` |
+| `--export-txt` | | Export captured packets to text file | `--export-txt` |
+| `--output-dir` | | Custom output directory for exports | `--output-dir logs` |
 | `--help` | `-h` | Show help message | `-h` |
+
+## 📊 Output Formats
+
+### Terminal Display
+- Color-coded by protocol (TCP=Green, UDP=Blue, ICMP=Yellow)
+- Real-time packet information with headers
+- Port usage analysis table (Wireshark-style)
+- Reverse DNS lookups for public IPs
+- Final capture statistics
+
+### JSON Export Format
+```json
+{
+  "metadata": {
+    "capture_date": "2025-11-04T10:30:00",
+    "total_packets": 100,
+    "os_type": "Windows",
+    "filters": {...},
+    "statistics": {...}
+  },
+  "packets": [
+    {
+      "packet_number": 1,
+      "timestamp": "2025-11-04T10:30:01.123456",
+      "size": 60,
+      "ip": {...},
+      "tcp": {...},
+      "hostnames": {...}
+    }
+  ]
+}
+```
+
+### Text Export Format
+- Human-readable report format
+- Capture metadata and statistics
+- Detailed packet-by-packet breakdown
+- All headers and transport layer info
+- Timestamps in ISO 8601 format
 
 ## 📊 Current Capabilities
 
@@ -164,29 +245,30 @@ python main.py -v
 
 ## 🎯 Roadmap
 
-### Phase 1.3 - Network Headers Parsing (Next)
-- Parse Ethernet headers
-- Parse IP headers
-- Parse TCP/UDP headers
-- Display human-readable packet information
+### ✅ Phase 1 - Foundation (Complete)
+- ✅ Basic configuration and OS detection
+- ✅ Raw socket creation and promiscuous mode
+- ✅ Network headers parsing (Ethernet, IP, TCP, UDP, ICMP)
 
-### Phase 2 - Advanced Features (Planned)
-- Protocol filtering (TCP, UDP, ICMP)
-- IP address filtering
-- Port filtering
-- Command-line arguments
-- Colored output
-
-### Phase 2.3 - Export Features (Planned)
-- Export to JSON format
-- Export to text log files
-- Timestamp tracking
-- Session recording
+### ✅ Phase 2 - Advanced Features (Complete)
+- ✅ Protocol filtering (TCP, UDP, ICMP)
+- ✅ IP address filtering (source/destination)
+- ✅ Port filtering
+- ✅ Command-line arguments with argparse
+- ✅ Colored output with colorama
+- ✅ Port usage analysis (Wireshark-style)
+- ✅ Reverse DNS lookups
+- ✅ Export to JSON format
+- ✅ Export to text log files
+- ✅ Timestamp tracking (ISO 8601)
+- ✅ Endless capture mode
 
 ### Phase 3 - Storage and Analysis (Planned)
-- Export to text/JSON format
-- Traffic statistics
+- Advanced traffic statistics
 - Top talkers analysis
+- Bandwidth usage tracking
+- Connection flow tracking
+- Protocol distribution charts
 
 ### Phase 4 - Executable (Planned)
 - Portable Windows executable (PyInstaller)
@@ -230,8 +312,12 @@ python main.py -v
 
 ```
 Packet_Sniffer/
-├── main.py           # Main application file
-└── README.md         # This file
+├── main.py              # Main application file (~1000 lines)
+├── README.md            # This file
+├── requirements.txt     # Python dependencies
+└── captures/            # Export directory (auto-created)
+    ├── capture_YYYYMMDD_HHMMSS.json
+    └── capture_YYYYMMDD_HHMMSS.txt
 ```
 
 ## 👨‍💻 Development
@@ -246,6 +332,6 @@ This is an educational project. Use responsibly and legally.
 
 ---
 
-**Current Status:** Phase 2.2 Complete - Enhanced UI with Colors ✅
+**Current Status:** Phase 2.3 Complete - Export Features (JSON, Text, Timestamps) ✅
 
-**Next Phase:** Phase 2.3 - Export Features (JSON, text files, timestamps)
+**Next Phase:** Phase 3 - Advanced Storage and Analysis
