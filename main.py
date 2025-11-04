@@ -186,12 +186,14 @@ class PacketSniffer:
                 # Bind to the local IP (required for Windows raw sockets)
                 self.socket.bind((host_ip, 0))
                 
+
                 # Enable promiscuous mode
                 self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 # Enable promiscuous mode using IOCTL - captures all traffic
                 self.socket.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
                 print(f"{Fore.GREEN}✅ Raw socket created and bound to {host_ip}{Style.RESET_ALL}")
                 print(f"{Fore.GREEN}✅ Promiscuous mode enabled (captures all interfaces){Style.RESET_ALL}")
+
                 
             elif self.os_type == "Linux":
                 # Linux: Create socket for all protocols
