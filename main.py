@@ -179,14 +179,14 @@ class PacketSniffer:
             if self.os_type == "Windows":
                 # Windows: Create socket for IP protocol
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
-                # Bind to local host
-                host = socket.gethostbyname(socket.gethostname())
-                self.socket.bind((host, 0))
+                # Bind to all interfaces (0.0.0.0) for promiscuous mode
+                # This captures traffic on all network interfaces
+                self.socket.bind(("0.0.0.0", 0))
                 # Enable promiscuous mode
                 self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
                 # Enable promiscuous mode using IOCTL
                 self.socket.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-                print(f"{Fore.GREEN}✅ Raw socket created and bound to {host}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}✅ Raw socket created and bound to all interfaces (0.0.0.0){Style.RESET_ALL}")
                 print(f"{Fore.GREEN}✅ Promiscuous mode enabled{Style.RESET_ALL}")
                 
             elif self.os_type == "Linux":
